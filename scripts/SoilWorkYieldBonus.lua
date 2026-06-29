@@ -6,6 +6,7 @@ SoilWorkYieldBonus.SAVE_ROOT = "soilWorkYieldBonus"
 SoilWorkYieldBonus.SAVE_VERSION = 1
 
 SoilWorkYieldBonus.COVERAGE_THRESHOLD = 0.80
+SoilWorkYieldBonus.SYNC_INTERVAL_MS = 1000
 
 SoilWorkYieldBonus.BONUS_DISKING = 0.04
 SoilWorkYieldBonus.BONUS_CULTIVATING = 0.06
@@ -46,6 +47,95 @@ local SoilWorkYieldBonus_mt = {
     __index = SoilWorkYieldBonus
 }
 
+SoilWorkYieldBonusSyncEvent = {}
+local SoilWorkYieldBonusSyncEvent_mt = Class(SoilWorkYieldBonusSyncEvent, Event)
+
+local function swybSyncEventEmptyNew()
+    return Event.new(SoilWorkYieldBonusSyncEvent_mt)
+end
+
+local function swybSyncEventNew(fieldStates, isFullSync)
+    local self = SoilWorkYieldBonusSyncEvent.emptyNew()
+    self.fieldStates = fieldStates or {}
+    self.isFullSync = isFullSync == true
+
+    return self
+end
+
+local function swybSyncEventWriteStream(self, streamId, connection)
+    streamWriteBool(streamId, self.isFullSync == true)
+
+    if streamWriteUInt16 ~= nil then
+        streamWriteUInt16(streamId, #self.fieldStates)
+    else
+        streamWriteUIntN(streamId, #self.fieldStates, 16)
+    end
+
+    for _, state in ipairs(self.fieldStates) do
+        streamWriteInt32(streamId, state.fieldId or 0)
+        streamWriteBool(streamId, state.delete == true)
+
+        if state.delete ~= true then
+            streamWriteFloat32(streamId, state.diskingHa or 0)
+            streamWriteFloat32(streamId, state.cultivatingHa or 0)
+            streamWriteFloat32(streamId, state.harvestedHa or 0)
+            streamWriteFloat32(streamId, state.fieldAreaHa or 0)
+        end
+    end
+end
+
+local function swybSyncEventReadStream(self, streamId, connection)
+    self.isFullSync = streamReadBool(streamId)
+    self.fieldStates = {}
+
+    local count = 0
+    if streamReadUInt16 ~= nil then
+        count = streamReadUInt16(streamId)
+    else
+        count = streamReadUIntN(streamId, 16)
+    end
+
+    for _ = 1, count do
+        local state = {
+            fieldId = streamReadInt32(streamId),
+            delete = streamReadBool(streamId)
+        }
+
+        if state.delete ~= true then
+            state.diskingHa = streamReadFloat32(streamId)
+            state.cultivatingHa = streamReadFloat32(streamId)
+            state.harvestedHa = streamReadFloat32(streamId)
+            state.fieldAreaHa = streamReadFloat32(streamId)
+        end
+
+        table.insert(self.fieldStates, state)
+    end
+
+    self:run(connection)
+end
+
+local function swybSyncEventRun(self, connection)
+    if connection ~= nil and connection.getIsServer ~= nil and not connection:getIsServer() then
+        return
+    end
+
+    local instance = g_soilWorkYieldBonus
+    if instance ~= nil then
+        instance:applyNetworkFieldStates(self.fieldStates, self.isFullSync)
+    end
+end
+
+SoilWorkYieldBonusSyncEvent.emptyNew = swybSyncEventEmptyNew
+SoilWorkYieldBonusSyncEvent.new = swybSyncEventNew
+SoilWorkYieldBonusSyncEvent.writeStream = swybSyncEventWriteStream
+SoilWorkYieldBonusSyncEvent.readStream = swybSyncEventReadStream
+SoilWorkYieldBonusSyncEvent.run = swybSyncEventRun
+InitEventClass(SoilWorkYieldBonusSyncEvent, "SoilWorkYieldBonusSyncEvent")
+
+function SoilWorkYieldBonus.registerNetworkEvent()
+    return SoilWorkYieldBonusSyncEvent ~= nil
+end
+
 function SoilWorkYieldBonus.new(customMt)
     local self = setmetatable({}, customMt or SoilWorkYieldBonus_mt)
 
@@ -53,6 +143,8 @@ function SoilWorkYieldBonus.new(customMt)
     self.harvestLocks = {}
     self.cutterFieldIds = {}
     self.combineFieldIds = {}
+    self.dirtyFieldIds = {}
+    self.syncTimer = 0
     self.savegamePath = nil
     self.saveHookInstalled = false
 
@@ -64,8 +156,12 @@ function SoilWorkYieldBonus:loadMap()
     self.harvestLocks = {}
     self.cutterFieldIds = {}
     self.combineFieldIds = {}
+    self.dirtyFieldIds = {}
+    self.syncTimer = 0
     self.savegamePath = self:getSavegamePath()
     SoilWorkYieldBonus.installSavegameHook()
+    SoilWorkYieldBonus.installInitialClientStateHook()
+    SoilWorkYieldBonus.registerNetworkEvent()
 
     if self:isServerSide() then
         self:loadFromSavegame()
@@ -77,7 +173,22 @@ function SoilWorkYieldBonus:deleteMap()
     self.harvestLocks = {}
     self.cutterFieldIds = {}
     self.combineFieldIds = {}
+    self.dirtyFieldIds = {}
+    self.syncTimer = 0
     self.savegamePath = nil
+end
+
+function SoilWorkYieldBonus:update(dt)
+    if not self:isServerSide() or next(self.dirtyFieldIds) == nil then
+        return
+    end
+
+    self.syncTimer = (self.syncTimer or 0) + (dt or 0)
+
+    if self.syncTimer >= SoilWorkYieldBonus.SYNC_INTERVAL_MS then
+        self.syncTimer = 0
+        self:sendDirtyFieldStates()
+    end
 end
 
 function SoilWorkYieldBonus:saveSavegame()
@@ -198,6 +309,115 @@ end
 
 function SoilWorkYieldBonus:resetFieldState(fieldId)
     self.fields[fieldId] = nil
+    self:markFieldDirty(fieldId, true)
+end
+
+function SoilWorkYieldBonus:markFieldDirty(fieldId, delete)
+    if not self:isServerSide() or fieldId == nil then
+        return
+    end
+
+    self.dirtyFieldIds[fieldId] = delete == true and "delete" or "update"
+end
+
+function SoilWorkYieldBonus:getNetworkFieldState(fieldId, delete)
+    if fieldId == nil then
+        return nil
+    end
+
+    if delete == true then
+        return {
+            fieldId = fieldId,
+            delete = true
+        }
+    end
+
+    local state = self.fields[fieldId]
+    if state == nil then
+        return nil
+    end
+
+    return {
+        fieldId = fieldId,
+        delete = false,
+        diskingHa = state.diskingHa or 0,
+        cultivatingHa = state.cultivatingHa or 0,
+        harvestedHa = state.harvestedHa or 0,
+        fieldAreaHa = state.fieldAreaHa or 0
+    }
+end
+
+function SoilWorkYieldBonus:getAllNetworkFieldStates()
+    local fieldStates = {}
+
+    for fieldId, state in pairs(self.fields) do
+        if self:hasPersistentState(state) then
+            local networkState = self:getNetworkFieldState(fieldId, false)
+            if networkState ~= nil then
+                table.insert(fieldStates, networkState)
+            end
+        end
+    end
+
+    return fieldStates
+end
+
+function SoilWorkYieldBonus:sendDirtyFieldStates()
+    if not self:isServerSide() or g_server == nil or not SoilWorkYieldBonus.registerNetworkEvent() then
+        self.dirtyFieldIds = {}
+        return
+    end
+
+    local fieldStates = {}
+
+    for fieldId, stateType in pairs(self.dirtyFieldIds) do
+        local networkState = self:getNetworkFieldState(fieldId, stateType == "delete")
+        if networkState ~= nil then
+            table.insert(fieldStates, networkState)
+        end
+    end
+
+    self.dirtyFieldIds = {}
+
+    if #fieldStates > 0 then
+        g_server:broadcastEvent(SoilWorkYieldBonusSyncEvent.new(fieldStates, false))
+    end
+end
+
+function SoilWorkYieldBonus:sendFullSync(connection)
+    if not self:isServerSide() or not SoilWorkYieldBonus.registerNetworkEvent() then
+        return
+    end
+
+    local event = SoilWorkYieldBonusSyncEvent.new(self:getAllNetworkFieldStates(), true)
+
+    if connection ~= nil and connection.sendEvent ~= nil then
+        connection:sendEvent(event)
+    elseif g_server ~= nil then
+        g_server:broadcastEvent(event)
+    end
+end
+
+function SoilWorkYieldBonus:applyNetworkFieldStates(fieldStates, isFullSync)
+    if isFullSync then
+        self.fields = {}
+    end
+
+    for _, networkState in ipairs(fieldStates or {}) do
+        local fieldId = networkState.fieldId
+
+        if fieldId ~= nil then
+            if networkState.delete == true then
+                self.fields[fieldId] = nil
+            else
+                local state = self:getOrCreateFieldState(fieldId)
+                state.diskingHa = networkState.diskingHa or 0
+                state.cultivatingHa = networkState.cultivatingHa or 0
+                state.harvestedHa = networkState.harvestedHa or 0
+                state.fieldAreaHa = networkState.fieldAreaHa or nil
+            end
+        end
+    end
 end
 
 function SoilWorkYieldBonus:getHaFromDensityArea(area)
@@ -800,6 +1020,7 @@ function SoilWorkYieldBonus:recordOperationForField(fieldId, densityArea, operat
     if areaHa > 0 then
         state[operationKey] = (state[operationKey] or 0) + areaHa
         state.harvestedHa = 0
+        self:markFieldDirty(fieldId, false)
     end
 end
 
@@ -1128,6 +1349,19 @@ function SoilWorkYieldBonus.onMissionSaveSavegame(mission)
     instance:saveToSavegame()
 end
 
+function SoilWorkYieldBonus.onSendInitialClientState(mission, connection, user, farm)
+    local instance = g_soilWorkYieldBonus
+    if instance == nil or not instance:isServerSide() then
+        return
+    end
+
+    if mission ~= nil and g_currentMission ~= nil and mission ~= g_currentMission then
+        return
+    end
+
+    instance:sendFullSync(connection)
+end
+
 function SoilWorkYieldBonus.fieldAddFarmland(hudUpdater, data, box)
     local instance = g_soilWorkYieldBonus
 
@@ -1181,6 +1415,17 @@ function SoilWorkYieldBonus.installSavegameHook()
     end
 end
 
+function SoilWorkYieldBonus.installInitialClientStateHook()
+    if SoilWorkYieldBonus.initialClientStateHookInstalled then
+        return
+    end
+
+    if FSBaseMission ~= nil and FSBaseMission.sendInitialClientState ~= nil then
+        FSBaseMission.sendInitialClientState = Utils.appendedFunction(FSBaseMission.sendInitialClientState, SoilWorkYieldBonus.onSendInitialClientState)
+        SoilWorkYieldBonus.initialClientStateHookInstalled = true
+    end
+end
+
 g_soilWorkYieldBonus = SoilWorkYieldBonus.new()
 addModEventListener(g_soilWorkYieldBonus)
 
@@ -1198,3 +1443,4 @@ end
 
 SoilWorkYieldBonus.installFieldInfoHook()
 SoilWorkYieldBonus.installSavegameHook()
+SoilWorkYieldBonus.installInitialClientStateHook()

@@ -64,6 +64,8 @@ Yield bonus: +4% 91%
 
 The mod tracks soil preparation progress per `fieldId` on the server side.
 
+In multiplayer, the server remains authoritative and synchronizes the stored field progress to clients so the standard field information panel can show the same bonus state.
+
 When harvesting, it applies the active field bonus to the harvested liters through the standard combine harvest path. It multiplies the vanilla harvest amount instead of replacing other base game systems.
 
 Stored state is saved in:
