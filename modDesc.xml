@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<modDesc descVersion="110">
+    <author>moji</author>
+    <version>1.0.0.20</version>
+    <title>
+        <en>SoilWorkYieldBonus</en>
+        <de>SoilWorkYieldBonus</de>
+        <ru>SoilWorkYieldBonus</ru>
+        <uk>SoilWorkYieldBonus</uk>
+    </title>
+    <description>
+        <en><![CDATA[
+Adds a small yield bonus for soil preparation work.
+
+Disking: +4%
+Cultivating: +6% and replaces disking
+
+The maximum bonus from this mod is +6%. Mulching and soil rolling remain handled by the base game. The active value is shown in the standard field information panel.
+        ]]></en>
+        <de><![CDATA[
+Fuegt einen kleinen Ertragsbonus fuer sinnvolle Bodenbearbeitung hinzu.
+
+Scheibeneggen: +4%
+Grubbern: +6% und ersetzt Scheibeneggen
+
+Der maximale Bonus dieses Mods betraegt +6%. Mulchen und Ackerwalzen bleiben beim Basisspiel. Der aktive Wert wird in der normalen Feldinformation angezeigt.
+        ]]></de>
+    </description>
+
+    <multiplayer supported="true"/>
+    <iconFilename>icon_SoilWorkYieldBonus.dds</iconFilename>
+
+    <extraSourceFiles>
+        <sourceFile filename="scripts/SoilWorkYieldBonus.lua"/>
+    </extraSourceFiles>
+
+    <l10n>
+        <text name="swyb_fieldInfoBonusShort">
+            <en>Yield bonus</en>
+            <de>Ertragsbonus</de>
+            <ru>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0443;&#x0440;&#x043E;&#x0436;&#x0430;&#x044F;</ru>
+            <uk>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0432;&#x0440;&#x043E;&#x0436;&#x0430;&#x044E;</uk>
+        </text>
+        <text name="swyb_fieldInfoBonus">
+            <en>Yield bonus</en>
+            <de>Ertragsbonus</de>
+            <ru>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0443;&#x0440;&#x043E;&#x0436;&#x0430;&#x044F;</ru>
+            <uk>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0432;&#x0440;&#x043E;&#x0436;&#x0430;&#x044E;</uk>
+        </text>
+        <text name="swyb_fieldInfoBonusNone">
+            <en>0%</en>
+            <de>0%</de>
+            <ru>0%</ru>
+            <uk>0%</uk>
+        </text>
+    </l10n>
+</modDesc>
