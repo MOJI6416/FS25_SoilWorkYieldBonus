@@ -5,6 +5,7 @@
     <title>
         <en>SoilWorkYieldBonus</en>
         <de>SoilWorkYieldBonus</de>
+        <fr>SoilWorkYieldBonus</fr>
         <ru>SoilWorkYieldBonus</ru>
         <uk>SoilWorkYieldBonus</uk>
     </title>
@@ -25,6 +26,14 @@ Grubbern: +6% und ersetzt Scheibeneggen
 
 Der maximale Bonus dieses Mods betraegt +6%. Mulchen und Ackerwalzen bleiben beim Basisspiel. Der aktive Wert wird in der normalen Feldinformation angezeigt.
         ]]></de>
+        <fr><![CDATA[
+Ajoute un petit bonus de rendement pour le travail de preparation du sol.
+
+Dechaumage avec disques: +4%
+Cultivateur: +6% et remplace le bonus du dechaumage
+
+Le bonus maximum de ce mod est de +6%. Le paillage et le roulage du sol restent geres par le jeu de base. La valeur active est affichee dans le panneau standard d'information du champ.
+        ]]></fr>
     </description>
 
     <multiplayer supported="true"/>
@@ -38,18 +47,21 @@ Der maximale Bonus dieses Mods betraegt +6%. Mulchen und Ackerwalzen bleiben bei
         <text name="swyb_fieldInfoBonusShort">
             <en>Yield bonus</en>
             <de>Ertragsbonus</de>
+            <fr>Bonus rendement</fr>
             <ru>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0443;&#x0440;&#x043E;&#x0436;&#x0430;&#x044F;</ru>
             <uk>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0432;&#x0440;&#x043E;&#x0436;&#x0430;&#x044E;</uk>
         </text>
         <text name="swyb_fieldInfoBonus">
             <en>Yield bonus</en>
             <de>Ertragsbonus</de>
+            <fr>Bonus rendement</fr>
             <ru>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0443;&#x0440;&#x043E;&#x0436;&#x0430;&#x044F;</ru>
             <uk>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0432;&#x0440;&#x043E;&#x0436;&#x0430;&#x044E;</uk>
         </text>
         <text name="swyb_fieldInfoBonusNone">
             <en>0%</en>
             <de>0%</de>
+            <fr>0%</fr>
             <ru>0%</ru>
             <uk>0%</uk>
         </text>
