@@ -1,0 +1,11 @@
+# Generated release archives
+*.zip
+
+# Farming Simulator runtime files
+log.txt
+*.log
+soilWorkYieldBonus.xml
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
