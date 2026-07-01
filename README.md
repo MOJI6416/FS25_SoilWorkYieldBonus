@@ -1,6 +1,6 @@
-# SoilWorkYieldBonus
+# Soil Work Yield Bonus
 
-SoilWorkYieldBonus is a lightweight gameplay script mod for Farming Simulator 25. It adds a small yield bonus for meaningful soil preparation work without adding menus, map icons, settings screens, or any extra player-facing configuration.
+Soil Work Yield Bonus is a lightweight gameplay script mod for Farming Simulator 25. It adds a small yield bonus for meaningful soil preparation work without adding menus, map icons, settings screens, or any extra player-facing configuration.
 
 The mod runs in the background and adds one compact line to the standard field information panel.
 
