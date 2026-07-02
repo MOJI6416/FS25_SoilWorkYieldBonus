@@ -3,7 +3,7 @@ SoilWorkYieldBonus = {}
 SoilWorkYieldBonus.MOD_NAME = g_currentModName or "FS25_SoilWorkYieldBonus"
 SoilWorkYieldBonus.SAVE_FILENAME = "soilWorkYieldBonus.xml"
 SoilWorkYieldBonus.SAVE_ROOT = "soilWorkYieldBonus"
-SoilWorkYieldBonus.SAVE_VERSION = 1
+SoilWorkYieldBonus.SAVE_VERSION = 2
 
 SoilWorkYieldBonus.COVERAGE_THRESHOLD = 0.80
 SoilWorkYieldBonus.SYNC_INTERVAL_MS = 1000
@@ -74,6 +74,7 @@ local function swybSyncEventWriteStream(self, streamId, connection)
     for _, state in ipairs(self.fieldStates) do
         streamWriteInt32(streamId, state.fieldId or 0)
         streamWriteBool(streamId, state.delete == true)
+        streamWriteFloat32(streamId, state.lockBonus or 0)
 
         if state.delete ~= true then
             streamWriteFloat32(streamId, state.diskingHa or 0)
@@ -100,6 +101,8 @@ local function swybSyncEventReadStream(self, streamId, connection)
             fieldId = streamReadInt32(streamId),
             delete = streamReadBool(streamId)
         }
+
+        state.lockBonus = streamReadFloat32(streamId)
 
         if state.delete ~= true then
             state.diskingHa = streamReadFloat32(streamId)
@@ -144,9 +147,9 @@ function SoilWorkYieldBonus.new(customMt)
     self.cutterFieldIds = {}
     self.combineFieldIds = {}
     self.dirtyFieldIds = {}
+    self.fieldAreaCache = {}
     self.syncTimer = 0
     self.savegamePath = nil
-    self.saveHookInstalled = false
 
     return self
 end
@@ -157,6 +160,7 @@ function SoilWorkYieldBonus:loadMap()
     self.cutterFieldIds = {}
     self.combineFieldIds = {}
     self.dirtyFieldIds = {}
+    self.fieldAreaCache = {}
     self.syncTimer = 0
     self.savegamePath = self:getSavegamePath()
     SoilWorkYieldBonus.installSavegameHook()
@@ -174,6 +178,7 @@ function SoilWorkYieldBonus:deleteMap()
     self.cutterFieldIds = {}
     self.combineFieldIds = {}
     self.dirtyFieldIds = {}
+    self.fieldAreaCache = {}
     self.syncTimer = 0
     self.savegamePath = nil
 end
@@ -243,6 +248,19 @@ function SoilWorkYieldBonus:loadFromSavegame()
         end
     end)
 
+    xmlFile:iterate(SoilWorkYieldBonus.SAVE_ROOT .. ".harvestLock", function(_, key)
+        local fieldId = xmlFile:getInt(key .. "#id")
+        local bonus = xmlFile:getFloat(key .. "#bonus", 0) or 0
+
+        if fieldId ~= nil and bonus > 0 then
+            self.harvestLocks[fieldId] = {
+                bonus = bonus,
+                harvestedHa = xmlFile:getFloat(key .. "#harvestedHa", 0),
+                fieldAreaHa = xmlFile:getFloat(key .. "#fieldAreaHa")
+            }
+        end
+    end)
+
     xmlFile:delete()
 end
 
@@ -275,6 +293,23 @@ function SoilWorkYieldBonus:saveToSavegame()
             end
 
             index = index + 1
+        end
+    end
+
+    local lockIndex = 0
+    for fieldId, lock in pairs(self.harvestLocks) do
+        if lock ~= nil and (lock.bonus or 0) > 0 then
+            local key = string.format("%s.harvestLock(%d)", SoilWorkYieldBonus.SAVE_ROOT, lockIndex)
+
+            xmlFile:setInt(key .. "#id", fieldId)
+            xmlFile:setFloat(key .. "#bonus", lock.bonus)
+            xmlFile:setFloat(key .. "#harvestedHa", lock.harvestedHa or 0)
+
+            if lock.fieldAreaHa ~= nil and lock.fieldAreaHa > 0 then
+                xmlFile:setFloat(key .. "#fieldAreaHa", lock.fieldAreaHa)
+            end
+
+            lockIndex = lockIndex + 1
         end
     end
 
@@ -325,10 +360,13 @@ function SoilWorkYieldBonus:getNetworkFieldState(fieldId, delete)
         return nil
     end
 
+    local lockBonus = self:getLockedHarvestBonus(fieldId)
+
     if delete == true then
         return {
             fieldId = fieldId,
-            delete = true
+            delete = true,
+            lockBonus = lockBonus
         }
     end
 
@@ -340,6 +378,7 @@ function SoilWorkYieldBonus:getNetworkFieldState(fieldId, delete)
     return {
         fieldId = fieldId,
         delete = false,
+        lockBonus = lockBonus,
         diskingHa = state.diskingHa or 0,
         cultivatingHa = state.cultivatingHa or 0,
         harvestedHa = state.harvestedHa or 0,
@@ -356,6 +395,16 @@ function SoilWorkYieldBonus:getAllNetworkFieldStates()
             if networkState ~= nil then
                 table.insert(fieldStates, networkState)
             end
+        end
+    end
+
+    for fieldId, lock in pairs(self.harvestLocks) do
+        if self.fields[fieldId] == nil and lock ~= nil and (lock.bonus or 0) > 0 then
+            table.insert(fieldStates, {
+                fieldId = fieldId,
+                delete = true,
+                lockBonus = lock.bonus
+            })
         end
     end
 
@@ -401,6 +450,7 @@ end
 function SoilWorkYieldBonus:applyNetworkFieldStates(fieldStates, isFullSync)
     if isFullSync then
         self.fields = {}
+        self.harvestLocks = {}
     end
 
     for _, networkState in ipairs(fieldStates or {}) do
@@ -414,8 +464,10 @@ function SoilWorkYieldBonus:applyNetworkFieldStates(fieldStates, isFullSync)
                 state.diskingHa = networkState.diskingHa or 0
                 state.cultivatingHa = networkState.cultivatingHa or 0
                 state.harvestedHa = networkState.harvestedHa or 0
-                state.fieldAreaHa = networkState.fieldAreaHa or nil
+                state.fieldAreaHa = (networkState.fieldAreaHa or 0) > 0 and networkState.fieldAreaHa or nil
             end
+
+            self.harvestLocks[fieldId] = (networkState.lockBonus or 0) > 0 and { bonus = networkState.lockBonus } or nil
         end
     end
 end
@@ -713,6 +765,25 @@ function SoilWorkYieldBonus:getFieldIdFromFieldInfoData(data)
 end
 
 function SoilWorkYieldBonus:getFieldAreaHa(fieldId)
+    if fieldId == nil then
+        return nil
+    end
+
+    local cachedAreaHa = self.fieldAreaCache[fieldId]
+    if cachedAreaHa ~= nil then
+        return cachedAreaHa
+    end
+
+    local areaHa = self:computeFieldAreaHa(fieldId)
+
+    if areaHa ~= nil and areaHa > 0 then
+        self.fieldAreaCache[fieldId] = areaHa
+    end
+
+    return areaHa
+end
+
+function SoilWorkYieldBonus:computeFieldAreaHa(fieldId)
     local field = self:getFieldById(fieldId)
     if field ~= nil then
         local areaHa = self:getAreaHaFromValue(field.areaHa)
@@ -944,6 +1015,12 @@ end
 function SoilWorkYieldBonus:getFieldBonusDisplayInfo(fieldId)
     local state = self.fields[fieldId]
     if state == nil then
+        local lockedBonus = self:getLockedHarvestBonus(fieldId)
+
+        if lockedBonus > 0 then
+            return math.min(lockedBonus, SoilWorkYieldBonus.BONUS_MAX), nil, true
+        end
+
         return 0, 0, false
     end
 
@@ -1060,6 +1137,7 @@ function SoilWorkYieldBonus:recordHarvestForField(fieldId, densityArea)
                 fieldAreaHa = fieldAreaHa
             }
             self.harvestLocks[fieldId] = lock
+            self:markFieldDirty(fieldId, false)
         end
 
         state.harvestedHa = (state.harvestedHa or 0) + areaHa
@@ -1078,6 +1156,7 @@ function SoilWorkYieldBonus:recordHarvestForField(fieldId, densityArea)
 
         if lock.fieldAreaHa ~= nil and lock.fieldAreaHa > 0 and lock.harvestedHa / lock.fieldAreaHa >= 0.995 then
             self.harvestLocks[fieldId] = nil
+            self:markFieldDirty(fieldId, self.fields[fieldId] == nil)
         end
     end
 end
@@ -1123,6 +1202,11 @@ function SoilWorkYieldBonus:formatFieldInfoValue(fieldId)
     end
 
     local bonusPercent = math.floor(bonus * 100 + 0.5)
+
+    if coverage == nil then
+        return string.format("+%d%%", bonusPercent)
+    end
+
     local coverageText = self:getCoveragePercentText(coverage)
     local thresholdPercent = self:getCoveragePercent(self:getCoverageThresholdForField(fieldId))
 
@@ -1198,23 +1282,30 @@ end
 
 function SoilWorkYieldBonus:getCultivatorOperationKey(cultivator)
     local spec = cultivator ~= nil and cultivator.spec_cultivator or nil
+
+    if spec ~= nil and spec.soilWorkYieldBonusOperationKey ~= nil then
+        return spec.soilWorkYieldBonusOperationKey
+    end
+
     local classifierText = self:getVehicleClassifierText(cultivator)
     local looksLikeDisc = self:textContainsAny(classifierText, SoilWorkYieldBonus.DISC_KEYWORDS)
     local looksLikeCultivator = self:textContainsAny(classifierText, SoilWorkYieldBonus.CULTIVATOR_KEYWORDS)
 
+    local operationKey = "diskingHa"
+
     if looksLikeDisc then
-        return "diskingHa"
+        operationKey = "diskingHa"
+    elseif spec ~= nil and (spec.useDeepMode == true or spec.isSubsoiler == true) then
+        operationKey = "cultivatingHa"
+    elseif looksLikeCultivator then
+        operationKey = "cultivatingHa"
     end
 
-    if spec ~= nil and (spec.useDeepMode == true or spec.isSubsoiler == true) then
-        return "cultivatingHa"
+    if spec ~= nil then
+        spec.soilWorkYieldBonusOperationKey = operationKey
     end
 
-    if looksLikeCultivator then
-        return "cultivatingHa"
-    end
-
-    return "diskingHa"
+    return operationKey
 end
 
 function SoilWorkYieldBonus:getVehiclePositionXZ(vehicle)
@@ -1241,7 +1332,21 @@ function SoilWorkYieldBonus:getPlayerPositionXZ()
         return nil, nil
     end
 
-    local vehicle = g_currentMission.controlledVehicle
+    local player = g_localPlayer
+    local vehicle = nil
+
+    if player ~= nil and player.getCurrentVehicle ~= nil then
+        local ok, currentVehicle = pcall(player.getCurrentVehicle, player)
+
+        if ok and currentVehicle ~= nil then
+            vehicle = currentVehicle
+        end
+    end
+
+    if vehicle == nil then
+        vehicle = g_currentMission.controlledVehicle
+    end
+
     if vehicle ~= nil then
         local x, z = self:getVehiclePositionXZ(vehicle)
         if x ~= nil then
@@ -1249,7 +1354,6 @@ function SoilWorkYieldBonus:getPlayerPositionXZ()
         end
     end
 
-    local player = g_localPlayer
     if player ~= nil and player.rootNode ~= nil then
         local x, _, z = getWorldTranslation(player.rootNode)
         return x, z

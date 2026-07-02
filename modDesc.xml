@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="110">
     <author>moji</author>
-    <version>1.0.0.24</version>
+    <version>1.0.0.3</version>
     <title>
         <en>Soil Work Yield Bonus</en>
         <de>Soil Work Yield Bonus</de>
@@ -18,22 +18,54 @@ Cultivating: +6% and replaces disking
 
 The maximum bonus from this mod is +6%. Mulching and soil rolling remain handled by the base game. The active value is shown in the standard field information panel.
         ]]></en>
+        <ru><![CDATA[
+Добавляет небольшой бонус к урожаю за подготовительную обработку почвы.
+
+Дискование: +4%
+Культивация: +6% и заменяет дискование
+
+Максимальный бонус от этого мода — +6%. Мульчирование и прикатывание почвы остаются на стороне базовой игры. Активное значение показывается на стандартной панели информации о поле.
+        ]]></ru>
+        <uk><![CDATA[
+Додає невеликий бонус до врожаю за підготовчий обробіток ґрунту.
+
+Дискування: +4%
+Культивація: +6% і замінює дискування
+
+Максимальний бонус від цього мода — +6%. Мульчування та прикочування ґрунту залишаються на боці базової гри. Активне значення показується на стандартній панелі інформації про поле.
+        ]]></uk>
         <de><![CDATA[
-Fuegt einen kleinen Ertragsbonus fuer sinnvolle Bodenbearbeitung hinzu.
+Fügt einen kleinen Ertragsbonus für sinnvolle Bodenbearbeitung hinzu.
 
 Scheibeneggen: +4%
 Grubbern: +6% und ersetzt Scheibeneggen
 
-Der maximale Bonus dieses Mods betraegt +6%. Mulchen und Ackerwalzen bleiben beim Basisspiel. Der aktive Wert wird in der normalen Feldinformation angezeigt.
+Der maximale Bonus dieses Mods beträgt +6%. Mulchen und Ackerwalzen bleiben beim Basisspiel. Der aktive Wert wird in der normalen Feldinformation angezeigt.
         ]]></de>
         <fr><![CDATA[
-Ajoute un petit bonus de rendement pour le travail de preparation du sol.
+Ajoute un petit bonus de rendement pour le travail de préparation du sol.
 
-Dechaumage avec disques: +4%
-Cultivateur: +6% et remplace le bonus du dechaumage
+Déchaumage avec disques: +4%
+Cultivateur: +6% et remplace le bonus du déchaumage
 
-Le bonus maximum de ce mod est de +6%. Le paillage et le roulage du sol restent geres par le jeu de base. La valeur active est affichee dans le panneau standard d'information du champ.
+Le bonus maximum de ce mod est de +6%. Le paillage et le roulage du sol restent gérés par le jeu de base. La valeur active est affichée dans le panneau standard d'information du champ.
         ]]></fr>
+        <es><![CDATA[
+Añade una pequeña bonificación de rendimiento por el trabajo de preparación del suelo.
+
+Gradeo de discos: +4%
+Cultivador: +6% y reemplaza el gradeo de discos
+
+La bonificación máxima de este mod es del +6%. El acolchado y el rulado del suelo siguen gestionados por el juego base. El valor activo se muestra en el panel estándar de información del campo.
+        ]]></es>
+        <pl><![CDATA[
+Dodaje niewielki bonus do plonów za prace przygotowujące glebę.
+
+Talerzowanie: +4%
+Kultywacja: +6% i zastępuje talerzowanie
+
+Maksymalny bonus z tego moda wynosi +6%. Mulczowanie i wałowanie gleby pozostają po stronie gry podstawowej. Aktywna wartość jest wyświetlana na standardowym panelu informacji o polu.
+        ]]></pl>
     </description>
 
     <multiplayer supported="true"/>
@@ -46,24 +78,21 @@ Le bonus maximum de ce mod est de +6%. Le paillage et le roulage du sol restent 
     <l10n>
         <text name="swyb_fieldInfoBonusShort">
             <en>Yield bonus</en>
+            <ru>Бонус урожая</ru>
+            <uk>Бонус врожаю</uk>
             <de>Ertragsbonus</de>
             <fr>Bonus rendement</fr>
-            <ru>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0443;&#x0440;&#x043E;&#x0436;&#x0430;&#x044F;</ru>
-            <uk>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0432;&#x0440;&#x043E;&#x0436;&#x0430;&#x044E;</uk>
-        </text>
-        <text name="swyb_fieldInfoBonus">
-            <en>Yield bonus</en>
-            <de>Ertragsbonus</de>
-            <fr>Bonus rendement</fr>
-            <ru>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0443;&#x0440;&#x043E;&#x0436;&#x0430;&#x044F;</ru>
-            <uk>&#x0411;&#x043E;&#x043D;&#x0443;&#x0441; &#x0432;&#x0440;&#x043E;&#x0436;&#x0430;&#x044E;</uk>
+            <es>Bono de rendimiento</es>
+            <pl>Bonus plonu</pl>
         </text>
         <text name="swyb_fieldInfoBonusNone">
             <en>0%</en>
-            <de>0%</de>
-            <fr>0%</fr>
             <ru>0%</ru>
             <uk>0%</uk>
+            <de>0%</de>
+            <fr>0%</fr>
+            <es>0%</es>
+            <pl>0%</pl>
         </text>
     </l10n>
 </modDesc>
